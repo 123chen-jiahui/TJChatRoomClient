@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" type="text/css" href="./css/homePage.css">
+  <link rel="stylesheet" type="text/css" href="./css/util.css">
+  <title>主页</title>
+</head>
+
+<body>
+  <div class="friends">
+    <h2>好友列表</h2>
+    <div id="test">
+    </div>
+    <!-- 打开弹窗按钮 -->
+    <button type="button" id="btn-addFriend">添加好友</button>
+    <button type="button" id="logout">登出</button>
+  </div>
+
+  <div class="groups">
+    <h2>群聊列表</h2>
+    <div id="group_item">
+    </div>
+    <button type="button" id="btn-createGroup">创建群聊</button>
+  </div>
+
+  <!-- 弹窗：添加好友 -->
+  <div id="myModal-addFriend" class="modal">
+    <!-- 弹窗内容 -->
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>添加好友</h2>
+      账号：<input type="text" id="friend-account">
+      <button type="button" id="addFriend">添加</button>
+    </div>
+  </div>
+
+  <div id="myModal-deleteFriend" class="modal">
+    <!-- 弹窗内容 -->
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>你确定要要删除该好友么？</h2>
+      <button type="button" id="yes">删除</button>
+      <button type="button" id="no">取消</button>
+    </div>
+  </div>
+
+  <!-- 弹窗：创建群聊 -->
+  <div id="myModal-createGroup" class="modal">
+    <!-- 弹窗内容 -->
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>创建群聊</h2>
+      群名称：<input type="text" id="group-name"><br>
+      选择群成员：
+      <ul id="group_member_selector">
+      </ul>
+      <button type="button" id="createGroup">创建</button>
+    </div>
+  </div>
+
+  <div id="myModal-inviteMember" class="modal">
+    <!-- 弹窗内容 -->
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      选择好友：
+      <ul id="invite_member_selector">
+      </ul>
+      <button type="button" id="inviteMember">邀请</button>
+    </div>
+  </div>
+
+
+  <script src="http://code.jquery.com/jquery-latest.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="./js/info.js"></script>
+  <script src="./js/conf.js"></script>
+  <script src="./js/public_funcs.js"></script>
+  <script>
+    // 获取账号信息
+    let t = localStorage.getItem('token').split(".");
+    let user = JSON.parse(decodeURIComponent(escape(window.atob(t[1]))))
+    let acc = user.Account
+
+    var ws = new WebSocket("ws://localhost:8888/ws");
+    console.log("Attempting Connection...")
+
+    ws.onopen = function (evt) {
+      console.log("Connection open ...");
+      ws.send(acc);
+    };
+
+    ws.onmessage = function (evt) {
+      if (evt.data == 'ping') {
+        ws.send('pong')
+      }
+      console.log("Received Message: " + evt.data);
+      // ws.send("hello again websockets!")
+    };
+
+    ws.onclose = function (evt) {
+      console.log("Connection closed.");
+    };
+
+
+
+
+    var friendTodelete = '' // 被删除好友的账号
+    var groupToUpdate = '' // 被添加成员的groupID
+    // 获取弹窗
+    var modal_addFriend = document.getElementById('myModal-addFriend');
+    var modal_deleteFriend = document.getElementById('myModal-deleteFriend')
+    var modal_createGroup = document.getElementById('myModal-createGroup')
+    var modal_inviteMember = document.getElementById('myModal-inviteMember')
+
+    // 打开弹窗的按钮对象
+    var btn_addFriend = document.getElementById("btn-addFriend");
+    var btn_createGroup = document.getElementById("btn-createGroup");
+    // var btn_inviteMember = document.getElementById("btn-inviteMember");
+
+    // 获取 <span> 元素，用于关闭弹窗
+    var span = document.querySelector('.close');
+
+    // 点击按钮打开弹窗
+    btn_addFriend.onclick = function () {
+      modal_addFriend.style.display = "block";
+    }
+    btn_createGroup.onclick = function () {
+      modal_createGroup.style.display = 'block'
+      // 设置默认没有选中
+      $('input[type="checkbox"]').each(function (i, n) {
+        n.checked = false;
+      })
+    }
+    // btn_inviteMember.onclick = function() {
+    //   modal_inviteMember.style.display = 'block'
+    //   $('input[type="checkbox"]').each(function (i, n) {
+    //     n.checked = false;
+    //   })
+    // }
+
+    // 在用户点击其他地方时，关闭弹窗
+    window.onclick = function (event) {
+      if (event.target == modal_addFriend ||
+        event.target == modal_deleteFriend ||
+        event.target == modal_createGroup) {
+        friendTodelete = ''
+        modal_addFriend.style.display = "none";
+        modal_deleteFriend.style.display = "none";
+        modal_createGroup.style.display = "none"
+        modal_inviteMember.style.display = 'none'
+      }
+    }
+
+
+    $(document).ready(function () {
+      $('#logout').click(function () {
+        logout()
+      })
+      $('.close').click(function () {
+        friendTodelete = ''
+        modal_addFriend.style.display = "none";
+        modal_deleteFriend.style.display = "none"
+        modal_createGroup.style.display = "none"
+        modal_inviteMember.style.display = 'none'
+      })
+
+      // 确认删除好友
+      $('#yes').click(function () {
+        axios({
+          method: 'delete',
+          url: BaseUrl + 'friends',
+          data: {
+            account: friendTodelete
+          },
+          headers: {
+            Authorization: 'bearer ' + localStorage.getItem('token')
+          }
+        }).then(function (response) {
+          alert('删除成功')
+          location.reload()
+        }).catch(function (error) {
+          alert(error.response.data)
+        })
+        friendTodelete = ''
+        modal_deleteFriend.style.display = "none";
+      })
+
+      // 取消删除好友
+      $('#no').click(function () {
+        friendTodelete = ''
+        modal_deleteFriend.style.display = "none";
+      })
+    })
+    $(document).ready(function () {
+      $('#test').on('click', '.button_delete_style', function (ev) {
+        // var index = $('#test .box').index(this)
+        index = $(this).closest('.box').index()
+        modal_deleteFriend.style.display = "block"
+        friendTodelete = friends[index]['account']
+      })
+    })
+    $(document).ready(function () {
+      // 进入页面后获取自身信息及好友信息
+      axios({
+        method: 'get',
+        url: BaseUrl + 'friends',
+        headers: {
+          'Authorization': 'bearer ' + localStorage.getItem('token')
+        }
+      }).then(function (response) {
+        friends = response.data
+        me = friends[0]
+        draw()
+      }).catch(function (error) {
+        console.log(error)
+        console.log(error.response.status)
+        if (error.response.status == 401) {
+          alert('登录过期，请重新登录')
+          localStorage.removeItem('token')
+          window.location.href = './login.html'
+        }
+      })
+    })
+
+    function draw() {
+      $(document).ready(function () {
+        $.each(friends, function (i, item) {
+          var str = '<div class="box"><p>昵称：'
+            + item.nickName + '</p><p>账号：'
+            + item.account + '</p><p>状态：离线'
+            + '</p><p><button type="button">聊天</button>'
+            + '<button type="button" class="button_delete_style">删除好友</button></p>'
+            + '</div>'
+          $('#test').append(str)
+        })
+
+        $.each(friends, function (i, item) {
+          if (i != 0) {
+            var str = '<input type="checkbox" value="' +
+              item.account + '"/>' +
+              item.nickName + '(' + item.account + ')'
+            $('#group_member_selector').append(str)
+            $('#invite_member_selector').append(str)
+          }
+        })
+      })
+    }
+
+    // 获取groups
+    $(document).ready(function () {
+      axios({
+        method: "get",
+        url: BaseUrl + 'groups',
+        headers: {
+          'Authorization': 'bearer ' + localStorage.getItem('token')
+        }
+      }).then(function (response) {
+        groups = response.data
+        draw_groups()
+        console.log(groups)
+        // console.log(groups[0]['Members'].length)
+      }).catch(function (error) {
+        console.log(error)
+      })
+    })
+    // 画groups
+    function draw_groups() {
+      $(document).ready(function () {
+        $.each(groups, function (i, item) {
+          var str = '<div class="box_group"><p>群名称：'
+            + item.Name + '</p><p>成员数：'
+            + item['Members'].length + '</p><button type="button">聊天'
+            + '</button><button type="button" class="button_invite_style">邀请</button>'
+            + '<button type="button" class="button_exit_style">退出</button>'
+          if (item.Owner == acc) {
+            str += '<button type="button">解散</button></div>'
+          }
+          $('#group_item').append(str)
+        })
+      })
+    }
+
+    $('#addFriend').click(function () {
+      var friend = $('#friend-account').val()
+      if (friend == '') {
+        alert('请输入账号')
+        return
+      }
+      axios({
+        method: 'post',
+        url: BaseUrl + 'friends',
+        data: {
+          account: friend
+        },
+        headers: {
+          'Authorization': 'bearer ' + localStorage.getItem('token')
+        }
+      }).then(function (response) {
+        alert('添加成功')
+        location.reload()
+      }).catch(function (error) {
+        alert(error.response.data)
+      })
+      modal_addFriend.style.display = "none";
+    })
+
+    $('#myModal-createGroup').on('click', '#createGroup', function (ev) {
+      var groupName = $('#group-name').val()
+      if (groupName == '') {
+        alert('请输入群聊名称')
+        return
+      }
+      var list = new Array()
+      list.push(acc)
+      // var index = $('#test .box').index(this)
+      $(this).prev().children().each(function (i) {
+        if ($(this).prop('checked')) { // 判断是否被选中
+          list.push($(this).val())
+        }
+      })
+      axios({
+        method: 'post',
+        url: BaseUrl + 'groups',
+        data: {
+          name: groupName,
+          owner: acc,
+          members: list
+        },
+        headers: {
+          'Authorization': 'bearer ' + localStorage.getItem('token')
+        }
+      }).then(function () {
+        alert('创建成功')
+      }).catch(function () {
+        alert('创建失败')
+      })
+      modal_createGroup.style.display = "none"
+    })
+
+    $(document).ready(function () {
+      $('#group_item').on('click', '.button_invite_style', function (ev) {
+        index = $(this).closest('.box_group').index()
+        modal_inviteMember.style.display = "block"
+        groupToUpdate = groups[index]['Id']
+        $('input[type="checkbox"]').each(function (i, n) {
+          n.checked = false;
+        })
+      })
+    })
+
+    $('#inviteMember').click(function () {
+      var list = new Array()
+      $(this).prev().children().each(function (i) {
+        if ($(this).prop('checked')) { // 判断是否被选中
+          list.push($(this).val())
+        }
+      })
+      axios({
+        method: 'put',
+        url: BaseUrl + 'groups',
+        data: {
+          id: groupToUpdate,
+          method: 'add',
+          list: list
+        },
+        headers: {
+          'Authorization': 'bearer ' + localStorage.getItem('token')
+        }
+      }).then(function () {
+        alert('邀请成功')
+        location.reload()
+      }).catch(function () {
+        alert('邀请失败')
+      })
+      groupToUpdate = ''
+      modal_inviteMember.style.display = "none"
+    })
+  </script>
+</body>
+
+</html>

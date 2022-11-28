@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register</title>
+</head>
+
+<body>
+  <p>注册</p>
+  <p>账号：<input type="text" id="account" value=""></p>
+  <p>密码：<input type="password" id="passwd" value=""></p>
+  <p>昵称：<input type="text" id="nickName" value=""></p>
+  <button id="register">注册</button>
+  <button id="login">返回登录界面</button>
+  <script src="http://code.jquery.com/jquery-latest.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="./js/conf.js"></script>
+  <script>
+    var account, passwd, nickName
+    $(document).ready(function () {
+      $('#login').click(function () {
+        window.location.href = './login.html'
+      })
+      $('#register').click(function () {
+        account = $('#account').val()
+        passwd = $('#passwd').val()
+        nickName = $('#nickName').val()
+        if (account == '' || passwd == '' || nickName == '') {
+          alert('请将信息填写完整')
+          return
+        }
+        const outerthis = this
+        axios({
+          method: 'post',
+          url: BaseUrl + 'register',
+          data: {
+            account: account,
+            passwd: passwd,
+            nickName: nickName
+          }
+        }).then(function (response) {
+          alert('注册成功')
+          window.location.href = './login.html'
+        }).catch(function (error) {
+          alert(error.response.data)
+        })
+      })
+    })
+
+  </script>
+</body>
+
+</html>

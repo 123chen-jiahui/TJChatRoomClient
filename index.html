@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TJChatRoom</title>
+</head>
+
+<body>
+  <h1>
+    TJChatRoom
+  </h1>
+  <button onclick="jump()">点此跳转</button>
+  <button onclick="logout()">登出</button>
+  <script type="text/javascript">
+
+    function jump() {
+      console.log("hello world")
+      window.location.href="./nextPage.html"
+    }
+
+    function logout() {
+      localStorage.removeItem('token')
+      window.location.href = './login.html'
+    }
+
+    // var ws = new WebSocket("ws://localhost:8888/ws");
+    // console.log("Attempting Connection...")
+
+    // ws.onopen = function (evt) {
+    //   console.log("Connection open ...");
+    //   ws.send("Hello WebSockets!");
+    //   ws.send("hello again websockets!")
+    // };
+
+    // ws.onmessage = function (evt) {
+    //   console.log("Received Message: " + evt.data);
+    // };
+
+    // ws.onclose = function(evt) {
+    // 	console.log("Connection closed.");
+    // };
+
+
+  </script>
+</body>
+
+</html>

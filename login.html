@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <p>登录</p>
+  <p>账号：<input type="text" id="account" value=""></p>
+  <p>密码：<input type="password" id="passwd" value=""></p>
+  <button id="login">登录</button>
+  <button id="reg">前往注册</button>
+  <script src="http://code.jquery.com/jquery-latest.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script>
+    var token = localStorage.getItem('token')
+    console.log(token)
+    if (token != '' && token != null) {
+      window.location.href = './homePage.html'
+    }
+    var account, passwd
+    $(document).ready(function() {
+      $("#login").click(function() {
+        account = $("#account").val()
+        passwd = $("#passwd").val()
+        if (account == '' || passwd == '') {
+          alert('请将信息填写完整')
+          return
+        }
+        axios({
+          method: 'get',
+          url: 'http://localhost:8888/login',
+          params: {
+            account: account,
+            passwd: passwd
+          }
+        }).then(function(response) {
+          // 将token存在localStorage中
+          localStorage.setItem('token', response.data)
+          // 页面跳转
+          window.location.href = './homePage.html'
+        }).catch(function(error) {
+          alert(error.response.data)
+        })
+      })
+      $("#reg").click(function() {
+        window.location.href = './register.html'
+      })
+    })
+  </script>
+  
+</body>
+</html>

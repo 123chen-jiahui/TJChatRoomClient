@@ -1,0 +1,36 @@
+
+.box {
+  height: 160px;
+  width: 150px;
+  border: solid;
+}
+
+.box_group {
+  padding-bottom: 5px;
+  width: 180px;
+  border: solid;
+}
+
+.button_delete_style {
+  color: red;
+}
+
+.button_exit_style {
+  color: red;
+}
+
+.button_invite_style {
+  color: green;
+}
+
+.friends {
+  width: 160px;
+  height: 100%;
+  float: left;
+}
+
+.groups {
+  width: 160px;
+  height: 100%;
+  float: left;
+}
