@@ -11,6 +11,14 @@
   border: solid;
 }
 
+.button_chat_style {
+  color: blue;
+}
+
+.button_chat_group_style {
+  color: blue;
+}
+
 .button_delete_style {
   color: red;
 }
@@ -23,6 +31,10 @@
   color: green;
 }
 
+.button_disband_style {
+  color: red;
+}
+
 .friends {
   width: 160px;
   height: 100%;
@@ -30,7 +42,7 @@
 }
 
 .groups {
-  width: 160px;
+  width: 200px;
   height: 100%;
   float: left;
 }

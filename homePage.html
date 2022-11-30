@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" type="text/css" href="./css/homePage.css">
   <link rel="stylesheet" type="text/css" href="./css/util.css">
+  <link rel="stylesheet" type="text/css" href="./css/chatBoard.css">
   <title>主页</title>
 </head>
 
@@ -27,6 +28,34 @@
     <button type="button" id="btn-createGroup">创建群聊</button>
   </div>
 
+  <div class="c">
+    <div class="container">
+      <!-- <span class="close">&times;</span> -->
+      <div>
+        <span class="close">&times;</span>
+      </div>
+      <div class="content">
+        <!-- <span class="close">&times;</span> -->
+        <!-- <div class="item item-center"><span>昨天 12:35</span></div> -->
+        <!-- <div class="item item-center"><span>你已添加了凡繁烦，现在可以开始聊天了。</span></div> -->
+
+        <!-- <div class="item item-right"> -->
+        <!-- <div class="bubble bubble-right">可以<br />一会儿再发给你</div> -->
+        <!-- <div class="avatar"><img
+            src="https://ss3.bdstatic.com/70cFv8Sh_Q1YnxGkpoWK1HF6hhy/it/u=3313909130,2406410525&fm=15&gp=0.jpg" />
+        </div> -->
+        <!-- </div> -->
+      </div>
+      <div class="input-area">
+        <textarea name="text" id="textarea"></textarea>
+        <div class="button-area">
+          <button id="send-btn" onclick="send()">发 送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <!-- 弹窗：添加好友 -->
   <div id="myModal-addFriend" class="modal">
     <!-- 弹窗内容 -->
@@ -42,9 +71,29 @@
     <!-- 弹窗内容 -->
     <div class="modal-content">
       <span class="close">&times;</span>
-      <h2>你确定要要删除该好友么？</h2>
+      <h2>你确定要删除该好友么？</h2>
       <button type="button" id="yes">删除</button>
       <button type="button" id="no">取消</button>
+    </div>
+  </div>
+
+  <div id="myModal-exitGroup" class="modal">
+    <!-- 弹窗内容 -->
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>你确定要退出该群聊么？</h2>
+      <button type="button" id="yesExit">确定</button>
+      <button type="button" id="noExit">取消</button>
+    </div>
+  </div>
+
+  <div id="myModal-disbandGroup" class="modal">
+    <!-- 弹窗内容 -->
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>你确定要解散该群聊么？</h2>
+      <button type="button" id="yesDisband">确定</button>
+      <button type="button" id="noDisband">取消</button>
     </div>
   </div>
 
@@ -94,11 +143,18 @@
     };
 
     ws.onmessage = function (evt) {
+      console.log('来了新信息')
       if (evt.data == 'ping') {
         ws.send('pong')
       }
-      console.log("Received Message: " + evt.data);
-      // ws.send("hello again websockets!")
+      ws.send('ok')
+      const reader = new FileReader()
+      reader.readAsText(evt.data, 'utf-8')
+      reader.onload = function () {
+        var message = JSON.parse(reader.result)
+        console.log(message)
+        addNewMessage(message)
+      }
     };
 
     ws.onclose = function (evt) {
@@ -110,11 +166,19 @@
 
     var friendTodelete = '' // 被删除好友的账号
     var groupToUpdate = '' // 被添加成员的groupID
+    var groupToDisband = '' // 被解散的groupID
+    var chatPerson = '' // 选中的聊天对象
+    var chatGroup = '' // 选中的群聊
     // 获取弹窗
     var modal_addFriend = document.getElementById('myModal-addFriend');
     var modal_deleteFriend = document.getElementById('myModal-deleteFriend')
+    var modal_disbandGroup = document.getElementById('myModal-disbandGroup')
+    var modal_exitGroup = document.getElementById('myModal-exitGroup')
     var modal_createGroup = document.getElementById('myModal-createGroup')
     var modal_inviteMember = document.getElementById('myModal-inviteMember')
+
+    // 获取聊天板
+    var chat_board = document.querySelector('.c')
 
     // 打开弹窗的按钮对象
     var btn_addFriend = document.getElementById("btn-addFriend");
@@ -146,12 +210,19 @@
     window.onclick = function (event) {
       if (event.target == modal_addFriend ||
         event.target == modal_deleteFriend ||
-        event.target == modal_createGroup) {
+        event.target == modal_createGroup ||
+        event.target == modal_inviteMember ||
+        event.target == modal_disbandGroup ||
+        event.target == modal_exitGroup) {
         friendTodelete = ''
+        groupToUpdate = ''
+        groupToDisband = ''
         modal_addFriend.style.display = "none";
         modal_deleteFriend.style.display = "none";
         modal_createGroup.style.display = "none"
         modal_inviteMember.style.display = 'none'
+        modal_disbandGroup.style.display = 'none'
+        modal_exitGroup.style.display = 'none'
       }
     }
 
@@ -162,10 +233,16 @@
       })
       $('.close').click(function () {
         friendTodelete = ''
+        groupToUpdate = ''
+        groupToDisband = ''
         modal_addFriend.style.display = "none";
         modal_deleteFriend.style.display = "none"
+        modal_disbandGroup.style.display = 'none'
+        modal_exitGroup.style.display = 'none'
         modal_createGroup.style.display = "none"
         modal_inviteMember.style.display = 'none'
+
+        chat_board.style.display = 'none'
       })
 
       // 确认删除好友
@@ -213,6 +290,7 @@
         }
       }).then(function (response) {
         friends = response.data
+        getUnreadMessages()
         me = friends[0]
         draw()
       }).catch(function (error) {
@@ -232,7 +310,7 @@
           var str = '<div class="box"><p>昵称：'
             + item.nickName + '</p><p>账号：'
             + item.account + '</p><p>状态：离线'
-            + '</p><p><button type="button">聊天</button>'
+            + '</p><p><button type="button" class="button_chat_style">聊天</button>'
             + '<button type="button" class="button_delete_style">删除好友</button></p>'
             + '</div>'
           $('#test').append(str)
@@ -273,11 +351,11 @@
         $.each(groups, function (i, item) {
           var str = '<div class="box_group"><p>群名称：'
             + item.Name + '</p><p>成员数：'
-            + item['Members'].length + '</p><button type="button">聊天'
+            + item['Members'].length + '</p><button type="button" class="button_chat_group_style">聊天'
             + '</button><button type="button" class="button_invite_style">邀请</button>'
             + '<button type="button" class="button_exit_style">退出</button>'
           if (item.Owner == acc) {
-            str += '<button type="button">解散</button></div>'
+            str += '<button type="button" class="button_disband_style">解散</button></div>'
           }
           $('#group_item').append(str)
         })
@@ -335,6 +413,7 @@
         }
       }).then(function () {
         alert('创建成功')
+        location.reload()
       }).catch(function () {
         alert('创建失败')
       })
@@ -379,6 +458,232 @@
       groupToUpdate = ''
       modal_inviteMember.style.display = "none"
     })
+
+    $(document).ready(function () {
+      $('#group_item').on('click', '.button_disband_style', function (ev) {
+        // var index = $('#test .box').index(this)
+        index = $(this).closest('.box_group').index()
+        modal_disbandGroup.style.display = "block"
+        groupToDisband = groups[index]['Id']
+        // console.log(groupToDisband)
+      })
+    })
+
+    $('#yesDisband').click(function () {
+      axios({
+        method: 'delete',
+        url: BaseUrl + 'groups',
+        params: {
+          id: groupToDisband,
+        },
+        headers: {
+          'Authorization': 'bearer ' + localStorage.getItem('token')
+        }
+      }).then(function () {
+        alert('解散成功')
+        location.reload()
+      }).catch(function () {
+        alert('解散失败')
+      })
+      groupToDisband = ''
+      modal_disbandGroup.style.display = 'none'
+    })
+
+    $('#noDisband').click(function () {
+      groupToDisband = ''
+      modal_disbandGroup.style.display = 'none'
+    })
+
+    $(document).ready(function () {
+      $('#group_item').on('click', '.button_exit_style', function (ev) {
+        // var index = $('#test .box').index(this)
+        index = $(this).closest('.box_group').index()
+        groupToUpdate = groups[index]['Id']
+        modal_exitGroup.style.display = "block"
+      })
+    })
+
+    $('#yesExit').click(function () {
+      axios({
+        method: 'put',
+        url: BaseUrl + 'groups',
+        data: {
+          id: groupToUpdate,
+          method: 'delete',
+          list: [acc]
+        },
+        headers: {
+          'Authorization': 'bearer ' + localStorage.getItem('token')
+        }
+      }).then(function () {
+        alert('退出成功')
+        location.reload()
+      }).catch(function () {
+        alert('退出失败')
+      })
+      groupToUpdate = ''
+      modal_exitGroup.style.display = 'none'
+    })
+
+    $('#noDisband').click(function () {
+      groupToUpdate = ''
+      modal_exitGroup.style.display = 'none'
+    })
+
+    //
+    // message
+    //
+
+    // 发送信息
+    function send() {
+      let text = document.querySelector('#textarea').value;
+      if (!text) {
+        alert('请输入内容');
+        return;
+      }
+      let item = document.createElement('div');
+      item.className = 'item item-right';
+      item.innerHTML = `<div class="bubble bubble-left">${text}</div><div class="avatar"><img src="https://ss3.bdstatic.com/70cFv8Sh_Q1YnxGkpoWK1HF6hhy/it/u=3313909130,2406410525&fm=15&gp=0.jpg" /></div>`;
+      document.querySelector('.content').appendChild(item); // 将用户发送的内容显示到页面上
+      document.querySelector('#textarea').value = ''; // 清空输入框
+      document.querySelector('#textarea').focus(); // 继续输入
+      //滚动条置底
+      let height = document.querySelector('.content').scrollHeight;
+      document.querySelector(".content").scrollTop = height;
+
+      axios({
+        method: 'post',
+        url: BaseUrl + 'messages',
+        data: {
+          time: Date.now(),
+          group: '',
+          from: acc,
+          to: chatPerson,
+          read: false,
+          contentType: 1,
+          content: text
+        },
+        headers: {
+          'Authorization': 'bearer ' + localStorage.getItem('token')
+        }
+      }).then(function () {
+        console.log('发送成功')
+        // 将消息插入到本地历史中
+        for (var i = 0; i < messages_unread_raw.length; i ++) {
+          if (messages_unread_raw[i]['From'] == chatPerson) {
+            messages_unread_raw[i]['Messages'].push({
+              Content: text,
+              contentType: 1,
+              Flag: 1,
+              Group: ''
+            })
+          }
+        }
+      }).catch(function () {
+        alert('发送失败')
+      })
+    }
+
+    // 显示聊天界面
+    $(document).ready(function () {
+      $('#test').on('click', '.button_chat_style', function (ev) {
+        // var index = $('#test .box').index(this)
+        index = $(this).closest('.box').index()
+        chatPerson = friends[index].account
+        chat_board.style.display = "block"
+        // 请求服务器将消息设为已读
+        axios({
+          method: 'put',
+          url: BaseUrl + 'messages',
+          params: {
+            opposite: chatPerson,
+            group: '0'
+          },
+          headers: {
+            'Authorization': 'bearer ' + localStorage.getItem('token')
+          }
+        }).then(function () {
+          console.log('消息成功更新为已读')
+        }).catch(function (error) {
+          alert('将消息更新为已读失败')
+        })
+        // 将消息显示在页面上
+        showMessages(chatPerson)
+      })
+    })
+
+    function getUnreadMessages() {
+      axios({
+        method: 'get',
+        url: BaseUrl + 'messages',
+        headers: {
+          'Authorization': 'bearer ' + localStorage.getItem('token')
+        }
+      }).then(function (response) {
+        messages_unread_raw = response.data
+        console.log(messages_unread_raw)
+      }).catch(function (error) {
+        console.log(error)
+      })
+    }
+
+    function rightWrap(message) {
+      var str = '<div class="item item-right">' +
+        '<div class="bubble bubble-right">' +
+        message +
+        '</div></div>'
+      return str
+    }
+
+    function leftWrap(message) {
+      var str = '<div class="item item-left">' +
+        '<div class="bubble bubble-left">' +
+        message +
+        '</div></div>'
+      return str
+    }
+
+    function showMessages(opposite) {
+      $('.content').empty()
+      // $('.content').append('<div class="item item-center"><span>以下是新消息</span></div>')
+      var flag = false
+      for (var i = 0; i < messages_unread_raw.length; i++) {
+        if (messages_unread_raw[i]['From'] == opposite) {
+          for (var j = 0; j < messages_unread_raw[i]['Messages'].length; j++) {
+            if (messages_unread_raw[i]['Messages'][j]['Flag'] == 0) {
+              $('.content').append(leftWrap(messages_unread_raw[i]['Messages'][j]['Content']))
+            } else if (messages_unread_raw[i]['Messages'][j]['Flag'] == 2) {
+              if (!flag) {
+                flag = true
+                $('.content').append('<div class="item item-center"><span>以下是新消息</span></div>')
+              }
+              $('.content').append(leftWrap(messages_unread_raw[i]['Messages'][j]['Content']))
+              messages_unread_raw[i]['Messages'][j]['Flag'] = 0
+            } else {
+              $('.content').append(rightWrap(messages_unread_raw[i]['Messages'][j]['Content']))
+            }
+          }
+        }
+      }
+    }
+
+    // 当我处于上线状态时，别人给我发了信息
+    function addNewMessage(message) {
+      var from = message['From']
+      if (chatPerson == from) {
+        $('.content').append(leftWrap(message['Content']))
+        for (var i = 0; i < messages_unread_raw.length; i ++) {
+          if (messages_unread_raw[i]['From'] == chatPerson) {
+            messages_unread_raw[i]['Messages'].push({
+              Content: message['Content'],
+              contentType: 1,
+              Flag: 0,
+              Group: ''
+            })
+          }
+        }
+      }
+    }
   </script>
 </body>
 
