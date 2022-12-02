@@ -1,6 +1,6 @@
 
 .box {
-  height: 160px;
+  padding-bottom: 5px;
   width: 150px;
   border: solid;
 }
@@ -45,4 +45,8 @@
   width: 200px;
   height: 100%;
   float: left;
+}
+
+.new_msg {
+  color: red;
 }

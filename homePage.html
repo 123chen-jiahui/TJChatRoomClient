@@ -31,7 +31,8 @@
   <div class="c">
     <div class="container">
       <!-- <span class="close">&times;</span> -->
-      <div>
+      <div id="title">
+        <h2 class="title">聊天</h2>
         <span class="close">&times;</span>
       </div>
       <div class="content">
@@ -147,13 +148,14 @@
       if (evt.data == 'ping') {
         ws.send('pong')
       }
-      ws.send('ok')
       const reader = new FileReader()
       reader.readAsText(evt.data, 'utf-8')
       reader.onload = function () {
         var message = JSON.parse(reader.result)
         console.log(message)
-        addNewMessage(message)
+        if (addNewMessage(message)) {
+          ws.send('read')
+        }
       }
     };
 
@@ -217,6 +219,7 @@
         friendTodelete = ''
         groupToUpdate = ''
         groupToDisband = ''
+        chatPerson = ''
         modal_addFriend.style.display = "none";
         modal_deleteFriend.style.display = "none";
         modal_createGroup.style.display = "none"
@@ -235,6 +238,7 @@
         friendTodelete = ''
         groupToUpdate = ''
         groupToDisband = ''
+        chatPerson = ''
         modal_addFriend.style.display = "none";
         modal_deleteFriend.style.display = "none"
         modal_disbandGroup.style.display = 'none'
@@ -543,11 +547,11 @@
       }
       let item = document.createElement('div');
       item.className = 'item item-right';
-      item.innerHTML = `<div class="bubble bubble-left">${text}</div><div class="avatar"><img src="https://ss3.bdstatic.com/70cFv8Sh_Q1YnxGkpoWK1HF6hhy/it/u=3313909130,2406410525&fm=15&gp=0.jpg" /></div>`;
+      item.innerHTML = `<div class="bubble bubble-left">${text}</div><div class="avatar"></div>`;
       document.querySelector('.content').appendChild(item); // 将用户发送的内容显示到页面上
       document.querySelector('#textarea').value = ''; // 清空输入框
       document.querySelector('#textarea').focus(); // 继续输入
-      //滚动条置底
+      // 滚动条置底
       let height = document.querySelector('.content').scrollHeight;
       document.querySelector(".content").scrollTop = height;
 
@@ -588,9 +592,11 @@
     $(document).ready(function () {
       $('#test').on('click', '.button_chat_style', function (ev) {
         // var index = $('#test .box').index(this)
+        $(this).parent().next().remove() // 删除新消息的提示
         index = $(this).closest('.box').index()
+        chatPerson = '' // 先清空
         chatPerson = friends[index].account
-        chat_board.style.display = "block"
+        chat_board.style.display = "block" // 展示聊天板
         // 请求服务器将消息设为已读
         axios({
           method: 'put',
@@ -612,6 +618,7 @@
       })
     })
 
+    // 用户登录后获取所有记录
     function getUnreadMessages() {
       axios({
         method: 'get',
@@ -621,12 +628,30 @@
         }
       }).then(function (response) {
         messages_unread_raw = response.data
+        for (var i = 0; i < messages_unread_raw.length; i ++) {
+          var found = false
+          for (var j = 0; j < messages_unread_raw[i].Messages.length && !found; j ++) {
+            if (messages_unread_raw[i].Messages[j].Flag == 2) {
+              found = true
+              for (var k = 0; k < friends.length; k ++) {
+                if (friends[k].account == messages_unread_raw[i].From) {
+                  $('.box').eq(k).append('<div class="new_msg">未读消息</div>')
+                  break
+                }
+              }
+            }
+          }
+        }
         console.log(messages_unread_raw)
       }).catch(function (error) {
         console.log(error)
       })
     }
 
+
+    // 以下两个函数可以合并
+
+    // content包裹html标签，显示在右边
     function rightWrap(message) {
       var str = '<div class="item item-right">' +
         '<div class="bubble bubble-right">' +
@@ -635,6 +660,7 @@
       return str
     }
 
+    // content包裹html标签，显示在左边
     function leftWrap(message) {
       var str = '<div class="item item-left">' +
         '<div class="bubble bubble-left">' +
@@ -643,9 +669,19 @@
       return str
     }
 
+    // 用户选中聊天的对象之后，从messages_unread_raw中读取对应的记录
+    // 并按照时间顺序（后端已经整理好了）和发送方和接收方（根据flag）显示在页面上
+    // 注意对于未读的消息（flag为2），需要将其在原数组中设为已读（flag为0）
     function showMessages(opposite) {
+      var nickName
+      for (var i = 0; i < friends.length; i ++) {
+        if (friends[i].account == opposite) {
+          nickName = friends[i].nickName
+          break
+        }
+      }
+      $('.title').text(nickName)
       $('.content').empty()
-      // $('.content').append('<div class="item item-center"><span>以下是新消息</span></div>')
       var flag = false
       for (var i = 0; i < messages_unread_raw.length; i++) {
         if (messages_unread_raw[i]['From'] == opposite) {
@@ -665,23 +701,53 @@
           }
         }
       }
+      // 滑动条置底
+      let height = document.querySelector('.content').scrollHeight;
+      document.querySelector(".content").scrollTop = height;
     }
 
     // 当我处于上线状态时，别人给我发了信息
     function addNewMessage(message) {
       var from = message['From']
-      if (chatPerson == from) {
+      console.log(chatPerson)
+      if (chatPerson == from) { // 如果处于正在聊天的状态
+        // 在客户端，将其插入到本地聊天记录，并将其置为已读
+        // (毋庸置疑，如果处于正在聊天的状态，对方发的消息都是已读)
         $('.content').append(leftWrap(message['Content']))
         for (var i = 0; i < messages_unread_raw.length; i ++) {
-          if (messages_unread_raw[i]['From'] == chatPerson) {
+          if (messages_unread_raw[i]['From'] == from) {
             messages_unread_raw[i]['Messages'].push({
               Content: message['Content'],
               contentType: 1,
-              Flag: 0,
+              Flag: 0, // 0就表示对方发给我的，且已读
+              Group: ''
+            })
+            // 滑动条置底
+            let height = document.querySelector('.content').scrollHeight;
+            document.querySelector(".content").scrollTop = height;
+          }
+        }
+        return true
+      } else {
+        // 增加消息提示
+        for (var i = 0; i < friends.length; i ++) {
+          if (friends[i]['account'] == from) {
+            $('.box').eq(i).append('<div class="new_msg">未读消息</div>')
+            break
+          }
+        }
+        for (var i = 0; i < messages_unread_raw.length; i ++) {
+          if (messages_unread_raw[i]['From'] == from) {
+            messages_unread_raw[i]['Messages'].push({
+              Content: message['Content'],
+              contentType: 1,
+              Flag: 2, // 0就表示对方发给我的，且已读
               Group: ''
             })
           }
         }
+        console.log('寄')
+        return false
       }
     }
     

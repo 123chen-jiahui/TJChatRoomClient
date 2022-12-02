@@ -142,3 +142,8 @@ textarea{
   background:rgba(0,0,0,0);
   -webkit-box-shadow:inset006pxrgba(0,0,0,0.5);
 }
+
+.title {
+  float: left;
+  margin: auto;
+}
