@@ -220,6 +220,7 @@
         groupToUpdate = ''
         groupToDisband = ''
         chatPerson = ''
+        chatGroup = ''
         modal_addFriend.style.display = "none";
         modal_deleteFriend.style.display = "none";
         modal_createGroup.style.display = "none"
@@ -239,6 +240,7 @@
         groupToUpdate = ''
         groupToDisband = ''
         chatPerson = ''
+        chatGroup = ''
         modal_addFriend.style.display = "none";
         modal_deleteFriend.style.display = "none"
         modal_disbandGroup.style.display = 'none'
@@ -355,12 +357,13 @@
         $.each(groups, function (i, item) {
           var str = '<div class="box_group"><p>群名称：'
             + item.Name + '</p><p>成员数：'
-            + item['Members'].length + '</p><button type="button" class="button_chat_group_style">聊天'
+            + item['Members'].length + '</p><p><button type="button" class="button_chat_group_style">聊天'
             + '</button><button type="button" class="button_invite_style">邀请</button>'
             + '<button type="button" class="button_exit_style">退出</button>'
           if (item.Owner == acc) {
-            str += '<button type="button" class="button_disband_style">解散</button></div>'
+            str += '<button type="button" class="button_disband_style">解散</button>'
           }
+          str += '</p></div>'
           $('#group_item').append(str)
         })
       })
@@ -560,7 +563,7 @@
         url: BaseUrl + 'messages',
         data: {
           time: Date.now(),
-          group: '',
+          group: chatGroup,
           from: acc,
           to: chatPerson,
           read: false,
@@ -573,13 +576,21 @@
       }).then(function () {
         console.log('发送成功')
         // 将消息插入到本地历史中
-        for (var i = 0; i < messages_unread_raw.length; i ++) {
+        for (var i = 0; i < messages_unread_raw.length; i++) {
           if (messages_unread_raw[i]['From'] == chatPerson) {
             messages_unread_raw[i]['Messages'].push({
               Content: text,
               contentType: 1,
               Flag: 1,
               Group: ''
+            })
+          } else if (messages_unread_raw[i]['From'] == chatGroup) {
+            console.log('插入信息')
+            messages_unread_raw[i]['Messages'].push({
+              Content: text,
+              contentType: 1,
+              Flag: 1,
+              GroupMember: acc
             })
           }
         }
@@ -588,13 +599,14 @@
       })
     }
 
-    // 显示聊天界面
+    // 显示聊天界面（个人聊天）
     $(document).ready(function () {
       $('#test').on('click', '.button_chat_style', function (ev) {
         // var index = $('#test .box').index(this)
         $(this).parent().next().remove() // 删除新消息的提示
         index = $(this).closest('.box').index()
         chatPerson = '' // 先清空
+        chatGroup = ''
         chatPerson = friends[index].account
         chat_board.style.display = "block" // 展示聊天板
         // 请求服务器将消息设为已读
@@ -618,6 +630,37 @@
       })
     })
 
+    // 显示聊天界面（群聊）
+    $(document).ready(function () {
+      $('#group_item').on('click', '.button_chat_group_style', function (ev) {
+        // var index = $('#test .box').index(this)
+        $(this).parent().next().remove() // 删除新消息的提示
+        index = $(this).closest('.box_group').index()
+        chatPerson = ''
+        chatGroup = '' // 先清空
+        chatGroup = groups[index].Id
+        chat_board.style.display = "block" // 展示聊天板
+        // 请求服务器将消息设为已读
+        axios({
+          method: 'put',
+          url: BaseUrl + 'messages',
+          params: {
+            opposite: chatGroup,
+            group: '1'
+          },
+          headers: {
+            'Authorization': 'bearer ' + localStorage.getItem('token')
+          }
+        }).then(function () {
+          console.log('消息成功更新为已读')
+        }).catch(function (error) {
+          alert('将消息更新为已读失败')
+        })
+        // 将消息显示在页面上
+        showMessagesGroup(chatGroup)
+      })
+    })
+
     // 用户登录后获取所有记录
     function getUnreadMessages() {
       axios({
@@ -628,15 +671,24 @@
         }
       }).then(function (response) {
         messages_unread_raw = response.data
-        for (var i = 0; i < messages_unread_raw.length; i ++) {
+        for (var i = 0; i < messages_unread_raw.length; i++) {
           var found = false
-          for (var j = 0; j < messages_unread_raw[i].Messages.length && !found; j ++) {
+          for (var j = 0; j < messages_unread_raw[i].Messages.length && !found; j++) {
             if (messages_unread_raw[i].Messages[j].Flag == 2) {
               found = true
-              for (var k = 0; k < friends.length; k ++) {
-                if (friends[k].account == messages_unread_raw[i].From) {
-                  $('.box').eq(k).append('<div class="new_msg">未读消息</div>')
-                  break
+              if (messages_unread_raw[i].IsGroup) {
+                for (var k = 0; k < groups.length; k++) {
+                  if (groups[k].Id == messages_unread_raw[i].From) {
+                    $('.box_group').eq(k).append('<div class="new_msg">未读消息</div>')
+                    break
+                  }
+                }
+              } else {
+                for (var k = 0; k < friends.length; k++) {
+                  if (friends[k].account == messages_unread_raw[i].From) {
+                    $('.box').eq(k).append('<div class="new_msg">未读消息</div>')
+                    break
+                  }
                 }
               }
             }
@@ -661,11 +713,13 @@
     }
 
     // content包裹html标签，显示在左边
-    function leftWrap(message) {
+    function leftWrap(content, message) {
       var str = '<div class="item item-left">' +
+        '<div class="avatar"><img src="./icon/2000021.jpg" /></div>' +
+        '<div>' + '<div class="xxx"> ' + content + '</div>' +
         '<div class="bubble bubble-left">' +
         message +
-        '</div></div>'
+        '</div></div></div>'
       return str
     }
 
@@ -674,7 +728,7 @@
     // 注意对于未读的消息（flag为2），需要将其在原数组中设为已读（flag为0）
     function showMessages(opposite) {
       var nickName
-      for (var i = 0; i < friends.length; i ++) {
+      for (var i = 0; i < friends.length; i++) {
         if (friends[i].account == opposite) {
           nickName = friends[i].nickName
           break
@@ -687,13 +741,48 @@
         if (messages_unread_raw[i]['From'] == opposite) {
           for (var j = 0; j < messages_unread_raw[i]['Messages'].length; j++) {
             if (messages_unread_raw[i]['Messages'][j]['Flag'] == 0) {
-              $('.content').append(leftWrap(messages_unread_raw[i]['Messages'][j]['Content']))
+              $('.content').append(leftWrap('', messages_unread_raw[i]['Messages'][j]['Content']))
             } else if (messages_unread_raw[i]['Messages'][j]['Flag'] == 2) {
               if (!flag) {
                 flag = true
                 $('.content').append('<div class="item item-center"><span>以下是新消息</span></div>')
               }
-              $('.content').append(leftWrap(messages_unread_raw[i]['Messages'][j]['Content']))
+              $('.content').append(leftWrap('', messages_unread_raw[i]['Messages'][j]['Content']))
+              messages_unread_raw[i]['Messages'][j]['Flag'] = 0
+            } else {
+              $('.content').append(rightWrap(messages_unread_raw[i]['Messages'][j]['Content']))
+            }
+          }
+        }
+      }
+      // 滑动条置底
+      let height = document.querySelector('.content').scrollHeight;
+      document.querySelector(".content").scrollTop = height;
+    }
+
+    function showMessagesGroup(groupId) {
+      var groupName
+      for (var i = 0; i < groups.length; i++) {
+        if (groups[i].Id == groupId) {
+          groupName = groups[i].Name
+          break
+        }
+      }
+      $('.title').text(groupName)
+      $('.content').empty()
+      var flag = false
+      for (var i = 0; i < messages_unread_raw.length; i++) {
+        if (messages_unread_raw[i]['From'] == groupId) {
+          for (var j = 0; j < messages_unread_raw[i]['Messages'].length; j++) {
+            var member = messages_unread_raw[i]['Messages'][j]['GroupMember']
+            if (messages_unread_raw[i]['Messages'][j]['Flag'] == 0) {
+              $('.content').append(leftWrap(member, messages_unread_raw[i]['Messages'][j]['Content']))
+            } else if (messages_unread_raw[i]['Messages'][j]['Flag'] == 2) {
+              if (!flag) {
+                flag = true
+                $('.content').append('<div class="item item-center"><span>以下是新消息</span></div>')
+              }
+              $('.content').append(leftWrap(member, messages_unread_raw[i]['Messages'][j]['Content']))
               messages_unread_raw[i]['Messages'][j]['Flag'] = 0
             } else {
               $('.content').append(rightWrap(messages_unread_raw[i]['Messages'][j]['Content']))
@@ -710,11 +799,12 @@
     function addNewMessage(message) {
       var from = message['From']
       console.log(chatPerson)
-      if (chatPerson == from) { // 如果处于正在聊天的状态
+      if (chatPerson == from) { // 如果处于正在聊天(非群聊)的状态
+        console.log("????????????")
         // 在客户端，将其插入到本地聊天记录，并将其置为已读
         // (毋庸置疑，如果处于正在聊天的状态，对方发的消息都是已读)
-        $('.content').append(leftWrap(message['Content']))
-        for (var i = 0; i < messages_unread_raw.length; i ++) {
+        $('.content').append(leftWrap('', message['Content']))
+        for (var i = 0; i < messages_unread_raw.length; i++) {
           if (messages_unread_raw[i]['From'] == from) {
             messages_unread_raw[i]['Messages'].push({
               Content: message['Content'],
@@ -728,29 +818,68 @@
           }
         }
         return true
-      } else {
-        // 增加消息提示
-        for (var i = 0; i < friends.length; i ++) {
-          if (friends[i]['account'] == from) {
-            $('.box').eq(i).append('<div class="new_msg">未读消息</div>')
-            break
-          }
-        }
-        for (var i = 0; i < messages_unread_raw.length; i ++) {
-          if (messages_unread_raw[i]['From'] == from) {
+      } else if (chatGroup == message['Group'] && chatGroup != '') { // 如果正处于聊天状态(群聊)
+        $('.content').append(leftWrap(from, message['Content']))
+        for (var i = 0; i < messages_unread_raw.length; i++) {
+          if (messages_unread_raw[i]['From'] == chatGroup) {
             messages_unread_raw[i]['Messages'].push({
               Content: message['Content'],
               contentType: 1,
-              Flag: 2, // 0就表示对方发给我的，且已读
-              Group: ''
+              Flag: 0, // 0就表示对方发给我的，且已读
+              Group: chatGroup,
+              GroupMember: from
             })
+            // 滑动条置底
+            let height = document.querySelector('.content').scrollHeight;
+            document.querySelector(".content").scrollTop = height;
           }
         }
-        console.log('寄')
-        return false
+        return true
+      } else {
+        // 增加消息提示
+        if (message['Group'] == '') { // 非群消息
+          for (var i = 0; i < friends.length; i++) {
+            if (friends[i]['account'] == from) {
+              $('.box').eq(i).append('<div class="new_msg">未读消息</div>')
+              break
+            }
+          }
+          for (var i = 0; i < messages_unread_raw.length; i++) {
+            if (messages_unread_raw[i]['From'] == from) {
+              messages_unread_raw[i]['Messages'].push({
+                Content: message['Content'],
+                contentType: 1,
+                Flag: 2, // 0就表示对方发给我的，且已读
+                Group: ''
+              })
+            }
+          }
+          console.log('寄')
+          return false
+        } else { // 群消息
+          for (var i = 0; i < groups.length; i++) {
+            if (groups[i].Id == message['Group']) {
+              $('.box_group').eq(i).append('<div class="new_msg">未读消息</div>')
+              break
+            }
+          }
+          for (var i = 0; i < messages_unread_raw.length; i++) {
+            if (messages_unread_raw[i]['From'] == message['Group']) {
+              messages_unread_raw[i]['Messages'].push({
+                Content: message['Content'],
+                contentType: 1,
+                Flag: 2, // 0就表示对方发给我的，且已读
+                Group: message['Group'],
+                GroupMember: from
+              })
+            }
+          }
+          console.log('寄')
+          return false
+        }
       }
     }
-    
+
   </script>
 </body>
 

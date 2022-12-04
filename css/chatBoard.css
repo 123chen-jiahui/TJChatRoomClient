@@ -24,6 +24,11 @@
 .content:hover::-webkit-scrollbar-thumb{
   background:rgba(0,0,0,0.1);
 }
+
+.xxx {
+  font-size: 80%;
+}
+
 .bubble{
   max-width: 400px;
   padding: 10px;
