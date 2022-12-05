@@ -19,6 +19,7 @@
     <!-- 打开弹窗按钮 -->
     <button type="button" id="btn-addFriend">添加好友</button>
     <button type="button" id="logout">登出</button>
+    <button type="button" id="settings">设置</button>
   </div>
 
   <div class="groups">
@@ -133,6 +134,7 @@
     // 获取账号信息
     let t = localStorage.getItem('token').split(".");
     let user = JSON.parse(decodeURIComponent(escape(window.atob(t[1]))))
+    console.log(user)
     let acc = user.Account
 
     var ws = new WebSocket("ws://localhost:8888/ws");
@@ -240,6 +242,9 @@
       $('#logout').click(function () {
         logout()
       })
+      $('#settings').click(function() {
+        window.location.href = './settings.html'
+      })
       $('.close').click(function () {
         friendTodelete = ''
         groupToUpdate = ''
@@ -304,6 +309,7 @@
         console.log(friends)
         getUnreadMessages()
         me = friends[0]
+        console.log('me is', me)
         draw()
       }).catch(function (error) {
         console.log(error)

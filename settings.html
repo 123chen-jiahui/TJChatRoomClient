@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" type="text/css" href="./css/util.css">
+  <title>设置</title>
+</head>
+<body>
+  <h2>
+    头像：
+  </h2>
+  <div id="avatar">
+
+  </div>
+  <!-- <form action="http://localhost:8888/avatar" method="post">
+    <input type="file" id="inputFile" name="upload">
+    <input type="submit" value="提交">
+  </form> -->
+  <h2>账号：</h2><div id="account"></div>
+  <h2>昵称：</h2><div id="nickName"></div>
+  <hr>
+  <h2>更改信息：</h2>
+  <p>
+    上传新头像：<input type="file" id="inputFile" name="upload">
+    <button type="button" id="saveFile">保存图片</button>
+  </p>
+  <p>
+    修改昵称：<input type="text" id="inputNickName">
+    <button type="button" id="saveNickName">保存昵称</button>
+  </p>
+  <p>
+    修改密码：<input type="text" id="inputPassword">
+    <button type="button" id="savePassword">保存密码</button>
+
+  <script src="http://code.jquery.com/jquery-latest.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="./js/public_funcs.js"></script>
+  <script src="./js/conf.js"></script>
+  <script>
+    var token = localStorage.getItem('token')
+    var me
+    if (token == null) {
+      alert('请先登录')
+      logout()
+    }
+    // 获取自身的信息
+    $(document).ready(function() {
+      // 获取信息
+      axios({
+        method: 'get',
+        url: 'http://localhost:8888/user',
+        headers: {
+          'Authorization': 'bearer ' + token
+        }
+      }).then(function(response) {
+        console.log(response.data)
+        console.log(AvatarUrlPrefix)
+        me = response.data
+        $('#avatar').append('<div class="settings"><img src="' + AvatarUrlPrefix + me.avatar + '" /></div>')
+        $('#nickName').append(me.nickName)
+        $('#account').append(me.account)
+      }).catch(function() {
+        alert('请先登录')
+        localStorage.removeItem('token')
+        window.location.href = '../login.html'
+      })
+    })
+
+    $('#saveFile').click(function() {
+      let forms = new FormData()
+      var files = document.getElementById('inputFile').files
+      console.log(files)
+      forms.append('upload', files[0])
+      axios({
+        method: 'post',
+        url: BaseUrl + 'avatar',
+        data: forms,
+        headers: {
+          'Authorization': 'bearer ' + token
+        }
+      }).then(function() {
+        console.log('更新头像成功')
+        location.reload()
+      }).catch(function() {
+        alert('更新头像失败')
+      })
+    })
+
+    $('#saveNickName').click(function() {
+      update()
+    })
+    $('#savePassword').click(function() {
+      update()
+    })
+
+    function update() {
+      let forms = new FormData()
+      forms.append('nickName', $('#inputNickName').val())
+      forms.append('password', $('#inputPassword').val())
+      axios({
+        method: 'put',
+        url: BaseUrl + 'user',
+        data: forms,
+        headers: {
+          'Authorization': 'bearer ' + token
+        }
+      }).then(function() {
+        alert('用户信息更新成功')
+        location.reload()
+      }).catch(function() {
+        alert('用户信息更新失败')
+      })
+    }
+  </script>
+</body>
+</html>

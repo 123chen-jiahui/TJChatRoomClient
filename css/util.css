@@ -36,3 +36,10 @@
   text-decoration: none;
   cursor: pointer;
 }
+
+/* 设置界面头像大小 */
+.settings img{
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+}
