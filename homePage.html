@@ -153,9 +153,14 @@
       reader.onload = function () {
         var message = JSON.parse(reader.result)
         console.log(message)
-        if (addNewMessage(message)) {
-          ws.send('read')
-        }
+        addNewMessage(message).then(value => {
+          if (value) {
+            ws.send('read')
+          }
+        })
+        // if (addNewMessage(message)) {
+        //   ws.send('read')
+        // }
       }
     };
 
@@ -296,6 +301,7 @@
         }
       }).then(function (response) {
         friends = response.data
+        console.log(friends)
         getUnreadMessages()
         me = friends[0]
         draw()
@@ -550,7 +556,7 @@
       }
       let item = document.createElement('div');
       item.className = 'item item-right';
-      item.innerHTML = `<div class="bubble bubble-left">${text}</div><div class="avatar"></div>`;
+      item.innerHTML = `<div class="bubble bubble-left">${text}</div><div class="avatar"><img src="${AvatarUrlPrefix + me.avatar}" /></div>`;
       document.querySelector('.content').appendChild(item); // 将用户发送的内容显示到页面上
       document.querySelector('#textarea').value = ''; // 清空输入框
       document.querySelector('#textarea').focus(); // 继续输入
@@ -704,19 +710,19 @@
     // 以下两个函数可以合并
 
     // content包裹html标签，显示在右边
-    function rightWrap(message) {
+    function rightWrap(avatarUrl, message) {
       var str = '<div class="item item-right">' +
         '<div class="bubble bubble-right">' +
         message +
-        '</div></div>'
+        '</div><div class="avatar"><img src="' + avatarUrl + '" /></div></div>'
       return str
     }
 
     // content包裹html标签，显示在左边
-    function leftWrap(content, message) {
+    function leftWrap(avatarUrl, nickName, message) {
       var str = '<div class="item item-left">' +
-        '<div class="avatar"><img src="./icon/2000021.jpg" /></div>' +
-        '<div>' + '<div class="xxx"> ' + content + '</div>' +
+        '<div class="avatar"><img src="' + avatarUrl + '" /></div>' +
+        '<div>' + '<div class="xxx"> ' + nickName + '</div>' +
         '<div class="bubble bubble-left">' +
         message +
         '</div></div></div>'
@@ -728,12 +734,16 @@
     // 注意对于未读的消息（flag为2），需要将其在原数组中设为已读（flag为0）
     function showMessages(opposite) {
       var nickName
+      var friend
+      var avatarUrl
       for (var i = 0; i < friends.length; i++) {
         if (friends[i].account == opposite) {
-          nickName = friends[i].nickName
+          friend = friends[i]
           break
         }
       }
+      nickName = friend.nickName
+      avatarUrl = AvatarUrlPrefix + friend.avatar
       $('.title').text(nickName)
       $('.content').empty()
       var flag = false
@@ -741,16 +751,16 @@
         if (messages_unread_raw[i]['From'] == opposite) {
           for (var j = 0; j < messages_unread_raw[i]['Messages'].length; j++) {
             if (messages_unread_raw[i]['Messages'][j]['Flag'] == 0) {
-              $('.content').append(leftWrap('', messages_unread_raw[i]['Messages'][j]['Content']))
+              $('.content').append(leftWrap(avatarUrl, '', messages_unread_raw[i]['Messages'][j]['Content']))
             } else if (messages_unread_raw[i]['Messages'][j]['Flag'] == 2) {
               if (!flag) {
                 flag = true
                 $('.content').append('<div class="item item-center"><span>以下是新消息</span></div>')
               }
-              $('.content').append(leftWrap('', messages_unread_raw[i]['Messages'][j]['Content']))
+              $('.content').append(leftWrap(avatarUrl, '', messages_unread_raw[i]['Messages'][j]['Content']))
               messages_unread_raw[i]['Messages'][j]['Flag'] = 0
             } else {
-              $('.content').append(rightWrap(messages_unread_raw[i]['Messages'][j]['Content']))
+              $('.content').append(rightWrap(AvatarUrlPrefix + me.avatar, messages_unread_raw[i]['Messages'][j]['Content']))
             }
           }
         }
@@ -760,7 +770,8 @@
       document.querySelector(".content").scrollTop = height;
     }
 
-    function showMessagesGroup(groupId) {
+    // async是为了同步打印聊天信息
+    async function showMessagesGroup(groupId) {
       var groupName
       for (var i = 0; i < groups.length; i++) {
         if (groups[i].Id == groupId) {
@@ -775,17 +786,27 @@
         if (messages_unread_raw[i]['From'] == groupId) {
           for (var j = 0; j < messages_unread_raw[i]['Messages'].length; j++) {
             var member = messages_unread_raw[i]['Messages'][j]['GroupMember']
+            console.log('寻找的目标是', member)
+            // 在Contacts中找
+            var found = false
+
+
+            var u = await findUser(member)
+            console.log(Contacts)
+            console.log(u)
+
+            var avatarUrl = AvatarUrlPrefix + u.avatar
             if (messages_unread_raw[i]['Messages'][j]['Flag'] == 0) {
-              $('.content').append(leftWrap(member, messages_unread_raw[i]['Messages'][j]['Content']))
+              $('.content').append(leftWrap(avatarUrl, u.nickName, messages_unread_raw[i]['Messages'][j]['Content']))
             } else if (messages_unread_raw[i]['Messages'][j]['Flag'] == 2) {
               if (!flag) {
                 flag = true
                 $('.content').append('<div class="item item-center"><span>以下是新消息</span></div>')
               }
-              $('.content').append(leftWrap(member, messages_unread_raw[i]['Messages'][j]['Content']))
+              $('.content').append(leftWrap(avatarUrl, u.nickName, messages_unread_raw[i]['Messages'][j]['Content']))
               messages_unread_raw[i]['Messages'][j]['Flag'] = 0
             } else {
-              $('.content').append(rightWrap(messages_unread_raw[i]['Messages'][j]['Content']))
+              $('.content').append(rightWrap(AvatarUrlPrefix + me.avatar, messages_unread_raw[i]['Messages'][j]['Content']))
             }
           }
         }
@@ -795,15 +816,52 @@
       document.querySelector(".content").scrollTop = height;
     }
 
+    // 同步寻找user，member表示被寻找者的account
+    async function findUser(member) {
+      var u = Contacts.get(member)
+      if (u != undefined) {
+        console.log('res.data is', u)
+        return u
+      }
+      console.log('contacts中没找到', member)
+      u = findFriend(member)
+      if (Object.keys(u).length) {
+        console.log('res.data is', u)
+        Contacts.set(member, u)
+        return u
+      }
+      console.log('friends中没找到', member)
+      res = await axios({
+        method: 'get',
+        url: BaseUrl + 'user',
+        params: {
+          who: member
+        },
+        headers: {
+          'Authorization': 'bearer ' + localStorage.getItem('token')
+        }
+      })
+      console.log('res.data is', res.data)
+      // 将信息放入map中，减少下次寻找的时间
+      Contacts.set(member, res.data)
+      return res.data
+    }
+
     // 当我处于上线状态时，别人给我发了信息
-    function addNewMessage(message) {
+    async function addNewMessage(message) {
       var from = message['From']
       console.log(chatPerson)
       if (chatPerson == from) { // 如果处于正在聊天(非群聊)的状态
         console.log("????????????")
         // 在客户端，将其插入到本地聊天记录，并将其置为已读
         // (毋庸置疑，如果处于正在聊天的状态，对方发的消息都是已读)
-        $('.content').append(leftWrap('', message['Content']))
+        // 先找到对方的信息，由于是来自好友的消息，一定能在Contacts和friends中找到
+        var u = Contacts.get(from)
+        if (u == undefined) {
+          u = findFriend(from)
+          Contacts.set(from, u)
+        }
+        $('.content').append(leftWrap(AvatarUrlPrefix + u.avatar, u.nickName, message['Content']))
         for (var i = 0; i < messages_unread_raw.length; i++) {
           if (messages_unread_raw[i]['From'] == from) {
             messages_unread_raw[i]['Messages'].push({
@@ -819,7 +877,8 @@
         }
         return true
       } else if (chatGroup == message['Group'] && chatGroup != '') { // 如果正处于聊天状态(群聊)
-        $('.content').append(leftWrap(from, message['Content']))
+        var u = await findUser(from)
+        $('.content').append(leftWrap(AvatarUrlPrefix + u.avatar, u.nickName, message['Content']))
         for (var i = 0; i < messages_unread_raw.length; i++) {
           if (messages_unread_raw[i]['From'] == chatGroup) {
             messages_unread_raw[i]['Messages'].push({
