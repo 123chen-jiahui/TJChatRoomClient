@@ -14,6 +14,7 @@
   <button id="reg">前往注册</button>
   <script src="http://code.jquery.com/jquery-latest.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="./js/conf.js"></script>
   <script>
     var token = localStorage.getItem('token')
     console.log(token)
@@ -31,7 +32,7 @@
         }
         axios({
           method: 'get',
-          url: 'http://localhost:8888/login',
+          url: BaseUrl + 'login',
           params: {
             account: account,
             passwd: passwd

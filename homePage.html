@@ -140,7 +140,8 @@
     console.log(user)
     let acc = user.Account
 
-    var ws = new WebSocket("ws://localhost:8888/ws");
+    // var ws = new WebSocket("ws://localhost:8888/ws") // 本地运行
+    var ws = new WebSocket("ws://118.31.108.144:8888/ws");
     console.log("Attempting Connection...")
 
     ws.onopen = function (evt) {
