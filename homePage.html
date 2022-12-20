@@ -598,7 +598,8 @@
               Content: text,
               contentType: 1,
               Flag: 1,
-              Group: ''
+              Group: '',
+              RemoteName: ''
             })
           } else if (messages_unread_raw[i]['From'] == chatGroup) {
             console.log('插入信息')
@@ -606,7 +607,8 @@
               Content: text,
               contentType: 1,
               Flag: 1,
-              GroupMember: acc
+              GroupMember: acc,
+              RemoteName: ''
             })
           }
         }
@@ -893,11 +895,13 @@
         $('.content').append(leftWrap(AvatarUrlPrefix + u.avatar, '', message['Content'], message['RemoteName']))
         for (var i = 0; i < messages_unread_raw.length; i++) {
           if (messages_unread_raw[i]['From'] == from) {
+            console.log('急急急急急急急急急')
             messages_unread_raw[i]['Messages'].push({
               Content: message['Content'],
               contentType: 1,
               Flag: 0, // 0就表示对方发给我的，且已读
-              Group: ''
+              Group: '',
+              RemoteName: message['RemoteName']
             })
             // 滑动条置底
             let height = document.querySelector('.content').scrollHeight;
@@ -915,7 +919,8 @@
               contentType: 1,
               Flag: 0, // 0就表示对方发给我的，且已读
               Group: chatGroup,
-              GroupMember: from
+              GroupMember: from,
+              RemoteName: message['RemoteName']
             })
             // 滑动条置底
             let height = document.querySelector('.content').scrollHeight;
@@ -938,7 +943,8 @@
                 Content: message['Content'],
                 contentType: 1,
                 Flag: 2, // 0就表示对方发给我的，且已读
-                Group: ''
+                Group: '',
+                RemoteName: message['RemoteName']
               })
             }
           }
@@ -958,7 +964,8 @@
                 contentType: 1,
                 Flag: 2, // 0就表示对方发给我的，且已读
                 Group: message['Group'],
-                GroupMember: from
+                GroupMember: from,
+                RemoteName: message['RemoteName']
               })
             }
           }
